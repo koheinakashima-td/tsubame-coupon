@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>TSUBAME DONUT クーポン</title>
-<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<!-- defer：SDKの読み込みを待たずに、先に読み込み中の画面を表示する -->
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
 <style>
   :root {
     --navy: #1f2f57;
@@ -60,6 +61,14 @@
   .next { margin-top: 14px; background: #e7f1fb; border-radius: 12px; padding: 12px; font-size: 13px; }
 
   .center { text-align: center; padding: 60px 0; color: var(--muted); }
+  /* 読み込み中の仮の画面（スケルトン）：真っ白な待ち時間をなくす */
+  .skel { background: var(--card); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+  .skel .sb { height: 46px; background: var(--navy); opacity: .85; }
+  .skel .sl { height: 18px; margin: 16px; border-radius: 6px; background: linear-gradient(90deg, #eceff4 25%, #f6f8fb 50%, #eceff4 75%); background-size: 200% 100%; animation: sh 1.2s infinite linear; }
+  .skel .sl.w60 { width: 60%; height: 26px; } .skel .sl.w40 { width: 40%; }
+  .skel-note { text-align: center; color: var(--muted); font-size: 12px; margin: 12px 0 0; }
+  @keyframes sh { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+  @media (prefers-reduced-motion: reduce) { .skel .sl { animation: none; } }
   .error { background: #f6e1df; color: var(--bad); border-radius: 12px; padding: 14px; font-size: 14px; }
 
   .overlay { position: fixed; inset: 0; background: rgba(10, 14, 25, .5); display: flex; align-items: flex-end; justify-content: center; }
@@ -76,7 +85,10 @@
   <div class="brand">TSUBAME DONUT</div>
   <div class="hello" id="hello"></div>
 
-  <div id="loading" class="center">読み込み中…</div>
+  <div id="loading">
+    <div class="skel"><div class="sb"></div><div class="sl w60"></div><div class="sl"></div><div class="sl w40"></div></div>
+    <p class="skel-note">クーポンを読み込んでいます…</p>
+  </div>
   <div id="error" class="error" hidden></div>
 
   <main id="main" hidden>
@@ -170,11 +182,17 @@
     $('cBenefit').textContent = c.benefit;
     const img = $('cImg');
     if (c.imageUrl) {
-      if (img.getAttribute('src') !== c.imageUrl) img.src = c.imageUrl;
+      // Googleドライブの画像は幅1040pxに縮小した版を先に読む（元画像が重くても速く出る）。失敗したら元のURL
+      const isDrive = /^https:\/\/lh3\.googleusercontent\.com\/d\/[\w-]+$/.test(c.imageUrl);
+      const first = isDrive ? c.imageUrl + '=w1040' : c.imageUrl;
       img.alt = c.name;
       img.style.aspectRatio = (c.imageRatio || '1:1').replace(':', ' / '); // メッセージ設定の「画像サイズ」と同じ比率
       img.hidden = false;
-      img.onerror = () => { img.hidden = true; }; // 画像URLが間違っていても画面は崩さない
+      img.onerror = () => {
+        if (isDrive && img.src !== c.imageUrl) { img.src = c.imageUrl; return; }
+        img.hidden = true; // 画像URLが間違っていても画面は崩さない
+      };
+      if (img.dataset.base !== c.imageUrl) { img.dataset.base = c.imageUrl; img.src = first; }
     } else {
       img.hidden = true;
     }
@@ -270,7 +288,8 @@
     }
   });
 
-  (async function main() {
+  // defer の SDK は DOMContentLoaded より前に読み込まれる
+  document.addEventListener('DOMContentLoaded', async function main() {
     try {
       await liff.init({ liffId: LIFF_ID });
       if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
@@ -285,7 +304,7 @@
     } catch (e) {
       showError('起動に失敗しました。LINEアプリから開き直してください。');
     }
-  })();
+  });
 </script>
 </body>
 </html>
