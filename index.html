@@ -34,6 +34,8 @@
   .band .code { font-family: ui-monospace, Menlo, monospace; font-size: 11px; opacity: .8; font-weight: 400; }
   .card.used .band { background: var(--ok); }
   .card.expired .band, .card.not_yet .band { background: var(--disabled); }
+  .hero { display: block; width: 100%; aspect-ratio: 1 / 1; object-fit: cover; background: var(--line); }
+  .card.expired .hero, .card.not_yet .hero { filter: grayscale(1); opacity: .6; }
   .body { padding: 18px 16px; display: grid; gap: 12px; }
   .benefit { font-size: 22px; font-weight: 800; line-height: 1.4; }
   .meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; border-top: 1px dashed var(--line); padding-top: 12px; font-size: 13px; font-variant-numeric: tabular-nums; }
@@ -80,6 +82,7 @@
   <main id="main" hidden>
     <div class="card" id="card">
       <div class="band"><span id="cName"></span><span class="code" id="cCode"></span></div>
+      <img class="hero" id="cImg" alt="" hidden>
       <div class="body">
         <div class="benefit" id="cBenefit"></div>
         <div class="usedbox" id="usedBox" hidden>
@@ -165,6 +168,15 @@
     $('cName').textContent = c.name;
     $('cCode').textContent = c.param;
     $('cBenefit').textContent = c.benefit;
+    const img = $('cImg');
+    if (c.imageUrl) {
+      if (img.getAttribute('src') !== c.imageUrl) img.src = c.imageUrl;
+      img.alt = c.name;
+      img.hidden = false;
+      img.onerror = () => { img.hidden = true; }; // 画像URLが間違っていても画面は崩さない
+    } else {
+      img.hidden = true;
+    }
 
     const card = $('card');
     card.className = 'card ' + data.state;
