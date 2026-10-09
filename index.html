@@ -9,14 +9,13 @@
 <style>
   :root {
     --navy: #1f2f57;
-    --sun: #f6b93b;
     --bg: #f4f6fa;
     --card: #ffffff;
     --fg: #1b2333;
     --muted: #677085;
     --line: #dfe3eb;
-    --ok: #1f9d6a;
-    --bad: #c2453d;
+    --red: #c2453d;
+    --redbg: #fbe4e2;
     --disabled: #b8bfcc;
   }
   * { box-sizing: border-box; }
@@ -33,34 +32,22 @@
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
   .band { background: var(--navy); color: #fff; padding: 12px 16px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
   .band .code { font-family: ui-monospace, Menlo, monospace; font-size: 11px; opacity: .8; font-weight: 400; }
-  .card.used .band { background: var(--ok); }
   .card.expired .band, .card.not_yet .band { background: var(--disabled); }
   .hero { display: block; width: 100%; aspect-ratio: 1 / 1; object-fit: cover; background: var(--line); }
   .card.expired .hero, .card.not_yet .hero { filter: grayscale(1); opacity: .6; }
   .body { padding: 18px 16px; display: grid; gap: 12px; }
   .benefit { font-size: 22px; font-weight: 800; line-height: 1.4; }
   .meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; border-top: 1px dashed var(--line); padding-top: 12px; font-size: 13px; font-variant-numeric: tabular-nums; }
-  .pill { border-radius: 99px; padding: 2px 10px; font-size: 12px; font-weight: 700; white-space: nowrap; }
-  .pill.available { background: #e3f4ec; color: var(--ok); }
-  .pill.soon { background: #fdf0d3; color: #8a5a00; }
-  .pill.used { background: #e3f4ec; color: var(--ok); }
-  .pill.expired, .pill.not_yet { background: #f6e1df; color: var(--bad); }
-
-  .usedbox { text-align: center; padding: 8px 0 4px; }
-  .usedbox .big { font-size: 30px; font-weight: 900; color: var(--ok); letter-spacing: .1em; }
-  .usedbox .at { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
-
-  .clock { text-align: center; color: var(--muted); font-size: 12px; margin: 12px 0 0; font-variant-numeric: tabular-nums; }
-  .clock b { color: var(--fg); font-size: 15px; }
+  .pill { border-radius: 99px; padding: 2px 10px; font-size: 12px; font-weight: 700; white-space: nowrap; background: var(--redbg); color: var(--red); }
 
   .actions { margin-top: 18px; display: grid; gap: 8px; }
-  .btn { font: inherit; font-weight: 800; font-size: 17px; letter-spacing: .08em; border: 0; border-radius: 14px; padding: 16px; background: var(--sun); color: #1b2333; cursor: pointer; }
-  .btn:disabled { background: var(--disabled); color: #fff; cursor: not-allowed; }
-  .btn:focus-visible { outline: 3px solid var(--navy); outline-offset: 2px; }
+  .btn { font: inherit; font-weight: 800; font-size: 17px; letter-spacing: .06em; border: 2px solid var(--navy); border-radius: 14px; padding: 15px; background: var(--navy); color: #fff; cursor: pointer; text-align: center; }
+  .btn:disabled { background: var(--disabled); border-color: var(--disabled); color: #fff; cursor: not-allowed; }
+  .btn:active:not(:disabled) { opacity: .8; }
+  .btn:focus-visible { outline: 3px solid #f6b93b; outline-offset: 2px; }
+  .btn.white { background: var(--card); color: var(--navy); }
   .note { text-align: center; color: var(--muted); font-size: 12px; margin: 0; }
-  .next { margin-top: 14px; background: #e7f1fb; border-radius: 12px; padding: 12px; font-size: 13px; }
 
-  .center { text-align: center; padding: 60px 0; color: var(--muted); }
   /* 読み込み中の仮の画面（スケルトン）：真っ白な待ち時間をなくす */
   .skel { background: var(--card); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
   .skel .sb { height: 46px; background: var(--navy); opacity: .85; }
@@ -68,16 +55,17 @@
   .skel .sl.w60 { width: 60%; height: 26px; } .skel .sl.w40 { width: 40%; }
   .skel-note { text-align: center; color: var(--muted); font-size: 12px; margin: 12px 0 0; }
   @keyframes sh { from { background-position: 200% 0; } to { background-position: -200% 0; } }
-  @media (prefers-reduced-motion: reduce) { .skel .sl { animation: none; } }
-  .error { background: #f6e1df; color: var(--bad); border-radius: 12px; padding: 14px; font-size: 14px; }
+  .error { background: var(--redbg); color: var(--red); border-radius: 12px; padding: 14px; font-size: 14px; }
 
+  /* 店舗選択 */
   .overlay { position: fixed; inset: 0; background: rgba(10, 14, 25, .5); display: flex; align-items: flex-end; justify-content: center; }
-  .sheet { background: var(--card); width: 100%; max-width: 480px; border-radius: 20px 20px 0 0; padding: 22px 18px calc(24px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 12px; }
-  .sheet h2 { margin: 0; font-size: 17px; }
-  .sheet p { margin: 0; color: var(--muted); font-size: 14px; }
-  .row2 { display: grid; grid-template-columns: 1fr 1.4fr; gap: 8px; }
-  .btn.ghost { background: transparent; border: 1px solid var(--line); color: var(--fg); }
-  .btn.go { background: var(--navy); color: #fff; }
+  .sheet { background: var(--card); width: 100%; max-width: 480px; border-radius: 20px 20px 0 0; padding: 22px 18px calc(24px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 8px; animation: up .22s ease-out; }
+  @keyframes up { from { transform: translateY(30%); opacity: 0; } to { transform: none; opacity: 1; } }
+  .sheet h2 { margin: 0; font-size: 18px; text-align: center; }
+  .sheet p { margin: 0 0 6px; color: var(--muted); font-size: 13px; text-align: center; }
+  .stores { display: grid; gap: 8px; }
+  #backBtn { margin-top: 4px; }
+  @media (prefers-reduced-motion: reduce) { .skel .sl, .sheet { animation: none; } }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -97,63 +85,46 @@
       <img class="hero" id="cImg" alt="" hidden>
       <div class="body">
         <div class="benefit" id="cBenefit"></div>
-        <div class="usedbox" id="usedBox" hidden>
-          <div class="big">使用済み</div>
-          <div class="at" id="usedAt"></div>
-        </div>
         <div class="meta">
-          <span id="cExpiry"></span>
+          <span id="cMeta"></span>
           <span class="pill" id="cPill"></span>
         </div>
       </div>
     </div>
 
-    <p class="clock">現在時刻 <b id="clock"></b></p>
-
-    <div class="next" id="next" hidden></div>
-
-    <div class="actions" id="actions">
+    <div class="actions">
       <button class="btn" id="useBtn" type="button">使用する</button>
-      <p class="note" id="useNote">お会計時にこの画面をスタッフに見せてください。<br>ボタンはスタッフが押します。</p>
+      <p class="note" id="useNote">お会計時にこの画面をスタッフに見せてください。</p>
     </div>
   </main>
 
-  <div class="overlay" id="confirm" hidden>
-    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
-      <h2 id="confirmTitle">スタッフ確認</h2>
-      <p id="confirmText"></p>
-      <div class="row2">
-        <button class="btn ghost" id="cancelBtn" type="button">戻る</button>
-        <button class="btn go" id="okBtn" type="button">使用済みにする</button>
-      </div>
+  <div class="overlay" id="storeSheet" hidden>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="storeTitle">
+      <h2 id="storeTitle">どの店舗で使用しますか？</h2>
+      <p>店舗を押すと使用済みになります。</p>
+      <div class="stores" id="stores"></div>
+      <button class="btn white" id="backBtn" type="button">戻る</button>
     </div>
   </div>
 
 <script>
-  // ===== ここを自分の値に書き換える =====
   const LIFF_ID = '2011940731-AAMbJVeu';                  // テスト用 tsubame_coupon
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbya9jqz4rXSQmCTDyxyBLFerRYEaxoc19ShJ5E_s6_JlGHho7-Zz_oL2qo17-y0Rx2N6A/exec'; // GAS ウェブアプリURL
-  // ======================================
 
   const $ = (id) => document.getElementById(id);
   let coupon = '';
   let idToken = '';
   let current = null;
+  let sending = false;
 
   const pad = (n) => String(n).padStart(2, '0');
   const fmtDate = (d) => `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())}`;
   const fmtDateTime = (d) => `${fmtDate(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 
-  // スクリーンショットの使い回し対策：秒まで動く時計を表示
-  function tick() {
-    const d = new Date();
-    $('clock').textContent = `${fmtDate(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-  }
-  setInterval(tick, 1000); tick();
-
   function showError(msg) {
     $('loading').hidden = true;
     $('main').hidden = true;
+    $('storeSheet').hidden = true;
     $('error').hidden = false;
     $('error').textContent = msg;
   }
@@ -169,6 +140,22 @@
     return res.json();
   }
 
+  function renderImage(c) {
+    const img = $('cImg');
+    if (!c.imageUrl) { img.hidden = true; return; }
+    // Googleドライブの画像は幅1040pxに縮小した版を先に読む。失敗したら元のURL
+    const isDrive = /^https:\/\/lh3\.googleusercontent\.com\/d\/[\w-]+$/.test(c.imageUrl);
+    const first = isDrive ? c.imageUrl + '=w1040' : c.imageUrl;
+    img.alt = c.name;
+    img.style.aspectRatio = (c.imageRatio || '1:1').replace(':', ' / ');
+    img.hidden = false;
+    img.onerror = () => {
+      if (isDrive && img.src !== c.imageUrl) { img.src = c.imageUrl; return; }
+      img.hidden = true;
+    };
+    if (img.dataset.base !== c.imageUrl) { img.dataset.base = c.imageUrl; img.src = first; }
+  }
+
   function render(data) {
     current = data;
     $('loading').hidden = true;
@@ -180,74 +167,44 @@
     $('cName').textContent = c.name;
     $('cCode').textContent = c.param;
     $('cBenefit').textContent = c.benefit;
-    const img = $('cImg');
-    if (c.imageUrl) {
-      // Googleドライブの画像は幅1040pxに縮小した版を先に読む（元画像が重くても速く出る）。失敗したら元のURL
-      const isDrive = /^https:\/\/lh3\.googleusercontent\.com\/d\/[\w-]+$/.test(c.imageUrl);
-      const first = isDrive ? c.imageUrl + '=w1040' : c.imageUrl;
-      img.alt = c.name;
-      img.style.aspectRatio = (c.imageRatio || '1:1').replace(':', ' / '); // メッセージ設定の「画像サイズ」と同じ比率
-      img.hidden = false;
-      img.onerror = () => {
-        if (isDrive && img.src !== c.imageUrl) { img.src = c.imageUrl; return; }
-        img.hidden = true; // 画像URLが間違っていても画面は崩さない
-      };
-      if (img.dataset.base !== c.imageUrl) { img.dataset.base = c.imageUrl; img.src = first; }
-    } else {
-      img.hidden = true;
-    }
+    renderImage(c);
 
-    const card = $('card');
-    card.className = 'card ' + data.state;
-    const pill = $('cPill');
-    const btn = $('useBtn');
-
-    // 有効期限
-    if (data.expiresAt) {
-      const exp = new Date(data.expiresAt);
-      $('cExpiry').textContent = `有効期限 ${fmtDate(exp)} まで`;
-    } else {
-      $('cExpiry').textContent = '有効期限 なし';
-    }
-
-    $('usedBox').hidden = data.state !== 'used';
-    $('next').hidden = true;
+    $('card').className = 'card ' + data.state;
+    const meta = $('cMeta'), pill = $('cPill'), btn = $('useBtn'), note = $('useNote');
+    const expiryText = data.expiresAt ? `有効期限 ${fmtDate(new Date(data.expiresAt))} まで` : '有効期限 なし';
 
     if (data.state === 'available') {
-      let label = '利用できます';
-      pill.className = 'pill available';
+      meta.textContent = expiryText;
       if (data.expiresAt) {
         const days = Math.ceil((new Date(data.expiresAt) - new Date()) / 86400000) - 1;
-        label = days <= 0 ? '本日まで' : `あと${days}日`;
-        if (days <= 3) pill.className = 'pill soon';
+        pill.textContent = days <= 0 ? '本日まで' : `あと${days}日`;
+        pill.hidden = false;
+      } else {
+        pill.hidden = true;
       }
-      pill.textContent = label;
       btn.disabled = false;
       btn.textContent = '使用する';
-      $('useNote').hidden = false;
+      note.hidden = false;
     } else if (data.state === 'used') {
-      pill.className = 'pill used';
-      pill.textContent = '使用済み';
-      $('usedAt').textContent = `${fmtDateTime(new Date(data.usedAt))} に使用`;
+      meta.textContent = `使用日時 ${fmtDateTime(new Date(data.usedAt))}` + (data.usedStore ? `（${data.usedStore}）` : '');
+      pill.hidden = true;
       btn.disabled = true;
       btn.textContent = '使用済み';
-      $('useNote').hidden = true;
-      if (data.next) {
-        $('next').hidden = false;
-        $('next').textContent = `ご来店ありがとうございます。次回の「${data.next.name}」は ${data.next.date} にLINEでお届けします。`;
-      }
+      note.hidden = true;
     } else if (data.state === 'expired') {
-      pill.className = 'pill expired';
+      meta.textContent = expiryText;
       pill.textContent = '期限切れ';
+      pill.hidden = false;
       btn.disabled = true;
       btn.textContent = '有効期限が切れています';
-      $('useNote').hidden = true;
+      note.hidden = true;
     } else {
-      pill.className = 'pill not_yet';
+      meta.textContent = expiryText;
       pill.textContent = 'まだ使えません';
+      pill.hidden = false;
       btn.disabled = true;
       btn.textContent = data.message || 'このクーポンはまだ使えません';
-      $('useNote').hidden = true;
+      note.hidden = true;
     }
   }
 
@@ -261,32 +218,46 @@
     }
   }
 
+  // 「使用する」→ 店舗選択
   $('useBtn').addEventListener('click', () => {
     if (!current || current.state !== 'available') return;
-    $('confirmText').textContent = `「${current.coupon.name}」を使用済みにします。元に戻せません。お客様のLINE画面であることを確認してから押してください。`;
-    $('confirm').hidden = false;
-    $('okBtn').focus();
+    const stores = (current.stores && current.stores.length) ? current.stores : [''];
+    const box = $('stores');
+    box.innerHTML = '';
+    stores.forEach((s) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn';
+      b.textContent = s || '使用済みにする'; // 店舗が未設定のときの予備
+      b.addEventListener('click', () => redeem(s, b));
+      box.appendChild(b);
+    });
+    $('storeSheet').hidden = false;
+    box.querySelector('button').focus();
   });
-  $('cancelBtn').addEventListener('click', () => { $('confirm').hidden = true; });
+  $('backBtn').addEventListener('click', () => { if (!sending) $('storeSheet').hidden = true; });
 
-  $('okBtn').addEventListener('click', async () => {
-    const ok = $('okBtn');
-    ok.disabled = true;
-    ok.textContent = '送信中…';
+  async function redeem(store, button) {
+    if (sending) return;
+    sending = true;
+    const all = [...$('storeSheet').querySelectorAll('button')];
+    all.forEach((b) => { b.disabled = true; });
+    const label = button.textContent;
+    button.textContent = '送信中…';
     try {
-      const data = await callGas({ action: 'redeem', coupon, idToken });
-      $('confirm').hidden = true;
+      const data = await callGas({ action: 'redeem', coupon, idToken, store });
+      $('storeSheet').hidden = true;
       if (data.state) render(data);           // 使用済み・期限切れ等、最新の状態を表示
       else showError(data.message || '消し込みに失敗しました。もう一度お試しください。');
     } catch (e) {
-      $('confirm').hidden = true;
-      // 通信エラー時は状態を取り直す（サーバー側で記録済みの可能性があるため）
-      await load();
+      $('storeSheet').hidden = true;
+      await load();                            // 通信エラー時は状態を取り直す（記録済みの可能性があるため）
     } finally {
-      ok.disabled = false;
-      ok.textContent = '使用済みにする';
+      sending = false;
+      all.forEach((b) => { b.disabled = false; });
+      button.textContent = label;
     }
-  });
+  }
 
   // defer の SDK は DOMContentLoaded より前に読み込まれる
   document.addEventListener('DOMContentLoaded', async function main() {
