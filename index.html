@@ -172,6 +172,7 @@
     if (c.imageUrl) {
       if (img.getAttribute('src') !== c.imageUrl) img.src = c.imageUrl;
       img.alt = c.name;
+      img.style.aspectRatio = (c.imageRatio || '1:1').replace(':', ' / '); // メッセージ設定の「画像サイズ」と同じ比率
       img.hidden = false;
       img.onerror = () => { img.hidden = true; }; // 画像URLが間違っていても画面は崩さない
     } else {
