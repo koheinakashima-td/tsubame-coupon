@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TSUBAME DONUT クーポン</title>
+<!-- defer：SDKの読み込みを待たずに、先に読み込み中の画面を表示する -->
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
+<style>
+  :root {
+    --navy: #1f2f57;
+    --bg: #f4f6fa;
+    --card: #ffffff;
+    --fg: #1b2333;
+    --muted: #677085;
+    --line: #dfe3eb;
+    --red: #c2453d;
+    --redbg: #fbe4e2;
+    --disabled: #b8bfcc;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); }
+  body {
+    font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+    font-size: 15px; line-height: 1.6;
+    padding: 20px 16px calc(28px + env(safe-area-inset-bottom, 0px));
+    max-width: 480px; margin: 0 auto;
+  }
+  .brand { font-weight: 800; letter-spacing: .12em; color: var(--navy); font-size: 13px; }
+  .hello { color: var(--muted); font-size: 13px; margin: 2px 0 14px; }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+  .band { background: var(--navy); color: #fff; padding: 12px 16px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+  .band .code { font-family: ui-monospace, Menlo, monospace; font-size: 11px; opacity: .8; font-weight: 400; }
+  .card.expired .band, .card.not_yet .band { background: var(--disabled); }
+  .hero { display: block; width: 100%; aspect-ratio: 1 / 1; object-fit: cover; background: var(--line); }
+  .card.expired .hero, .card.not_yet .hero { filter: grayscale(1); opacity: .6; }
+  .body { padding: 18px 16px; display: grid; gap: 12px; }
+  .benefit { font-size: 22px; font-weight: 800; line-height: 1.4; }
+  .meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; border-top: 1px dashed var(--line); padding-top: 12px; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .pill { border-radius: 99px; padding: 2px 10px; font-size: 12px; font-weight: 700; white-space: nowrap; background: var(--redbg); color: var(--red); }
+
+  .actions { margin-top: 18px; display: grid; gap: 8px; }
+  .btn { font: inherit; font-weight: 800; font-size: 17px; letter-spacing: .06em; border: 2px solid var(--navy); border-radius: 14px; padding: 15px; background: var(--navy); color: #fff; cursor: pointer; text-align: center; }
+  .btn:disabled { background: var(--disabled); border-color: var(--disabled); color: #fff; cursor: not-allowed; }
+  .btn:active:not(:disabled) { opacity: .8; }
+  .btn:focus-visible { outline: 3px solid #f6b93b; outline-offset: 2px; }
+  .btn.white { background: var(--card); color: var(--navy); }
+  .note { text-align: center; color: var(--muted); font-size: 12px; margin: 0; }
+
+  /* 読み込み中の仮の画面（スケルトン）：真っ白な待ち時間をなくす */
+  .skel { background: var(--card); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+  .skel .sb { height: 46px; background: var(--navy); opacity: .85; }
+  .skel .sl { height: 18px; margin: 16px; border-radius: 6px; background: linear-gradient(90deg, #eceff4 25%, #f6f8fb 50%, #eceff4 75%); background-size: 200% 100%; animation: sh 1.2s infinite linear; }
+  .skel .sl.w60 { width: 60%; height: 26px; } .skel .sl.w40 { width: 40%; }
+  .skel-note { text-align: center; color: var(--muted); font-size: 12px; margin: 12px 0 0; }
+  @keyframes sh { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+  .error { background: var(--redbg); color: var(--red); border-radius: 12px; padding: 14px; font-size: 14px; }
+
+  /* 店舗選択 */
+  .overlay { position: fixed; inset: 0; background: rgba(10, 14, 25, .5); display: flex; align-items: flex-end; justify-content: center; }
+  .sheet { background: var(--card); width: 100%; max-width: 480px; border-radius: 20px 20px 0 0; padding: 22px 18px calc(24px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 8px; animation: up .22s ease-out; }
+  @keyframes up { from { transform: translateY(30%); opacity: 0; } to { transform: none; opacity: 1; } }
+  .sheet h2 { margin: 0; font-size: 18px; text-align: center; }
+  .sheet p { margin: 0 0 6px; color: var(--muted); font-size: 13px; text-align: center; }
+  .stores { display: grid; gap: 8px; }
+  #backBtn { margin-top: 4px; }
+  @media (prefers-reduced-motion: reduce) { .skel .sl, .sheet { animation: none; } }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+  <div class="brand">TSUBAME DONUT</div>
+  <div class="hello" id="hello"></div>
+
+  <div id="loading">
+    <div class="skel"><div class="sb"></div><div class="sl w60"></div><div class="sl"></div><div class="sl w40"></div></div>
+    <p class="skel-note">クーポンを読み込んでいます…</p>
+  </div>
+  <div id="error" class="error" hidden></div>
+
+  <main id="main" hidden>
+    <div class="card" id="card">
+      <div class="band"><span id="cName"></span><span class="code" id="cCode"></span></div>
+      <img class="hero" id="cImg" alt="" hidden>
+      <div class="body">
+        <div class="benefit" id="cBenefit"></div>
+        <div class="meta">
+          <span id="cMeta"></span>
+          <span class="pill" id="cPill"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn" id="useBtn" type="button">使用する</button>
+      <p class="note" id="useNote">お会計時にこの画面をスタッフに見せてください。</p>
+    </div>
+  </main>
+
+  <div class="overlay" id="storeSheet" hidden>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="storeTitle">
+      <h2 id="storeTitle">どの店舗で使用しますか？</h2>
+      <p>店舗を押すと使用済みになります。</p>
+      <div class="stores" id="stores"></div>
+      <button class="btn white" id="backBtn" type="button">戻る</button>
+    </div>
+  </div>
+
+<script>
+  const LIFF_ID = '2011991095-M0UphXoI';                  // 本番 TSUBAME DONUT クーポン
+  const GAS_URL = 'https://script.google.com/macros/s/AKfycbz6zfsP9Cw6aB4Cr1BapRFEypMgHQtkkthtGqxiibaFYJcDpconR6yd15IvGnCs3PxH/exec'; // 本番 GAS ウェブアプリURL
+
+  const $ = (id) => document.getElementById(id);
+  let coupon = '';
+  let idToken = '';
+  let current = null;
+  let sending = false;
+
+  const pad = (n) => String(n).padStart(2, '0');
+  const fmtDate = (d) => `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())}`;
+  const fmtDateTime = (d) => `${fmtDate(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+  function showError(msg) {
+    $('loading').hidden = true;
+    $('main').hidden = true;
+    $('storeSheet').hidden = true;
+    $('error').hidden = false;
+    $('error').textContent = msg;
+  }
+
+  // GAS へ送信（text/plain にすることで CORS のプリフライトを回避）
+  async function callGas(payload) {
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  }
+
+  function renderImage(c) {
+    const img = $('cImg');
+    if (!c.imageUrl) { img.hidden = true; return; }
+    // Googleドライブの画像は幅1040pxに縮小した版を先に読む。失敗したら元のURL
+    const isDrive = /^https:\/\/lh3\.googleusercontent\.com\/d\/[\w-]+$/.test(c.imageUrl);
+    const first = isDrive ? c.imageUrl + '=w1040' : c.imageUrl;
+    img.alt = c.name;
+    img.style.aspectRatio = (c.imageRatio || '1:1').replace(':', ' / ');
+    img.hidden = false;
+    img.onerror = () => {
+      if (isDrive && img.src !== c.imageUrl) { img.src = c.imageUrl; return; }
+      img.hidden = true;
+    };
+    if (img.dataset.base !== c.imageUrl) { img.dataset.base = c.imageUrl; img.src = first; }
+  }
+
+  function render(data) {
+    current = data;
+    $('loading').hidden = true;
+    $('error').hidden = true;
+    $('main').hidden = false;
+
+    if (data.displayName) $('hello').textContent = `${data.displayName} さん`;
+    const c = data.coupon;
+    $('cName').textContent = c.name;
+    $('cCode').textContent = c.param;
+    $('cBenefit').textContent = c.benefit;
+    renderImage(c);
+
+    $('card').className = 'card ' + data.state;
+    const meta = $('cMeta'), pill = $('cPill'), btn = $('useBtn'), note = $('useNote');
+    const expiryText = data.expiresAt ? `有効期限 ${fmtDate(new Date(data.expiresAt))} まで` : '有効期限 なし';
+
+    if (data.state === 'available') {
+      meta.textContent = expiryText;
+      if (data.expiresAt) {
+        const days = Math.ceil((new Date(data.expiresAt) - new Date()) / 86400000) - 1;
+        pill.textContent = days <= 0 ? '本日まで' : `あと${days}日`;
+        pill.hidden = false;
+      } else {
+        pill.hidden = true;
+      }
+      btn.disabled = false;
+      btn.textContent = '使用する';
+      note.hidden = false;
+    } else if (data.state === 'used') {
+      meta.textContent = `使用日時 ${fmtDateTime(new Date(data.usedAt))}` + (data.usedStore ? `（${data.usedStore}）` : '');
+      pill.hidden = true;
+      btn.disabled = true;
+      btn.textContent = '使用済み';
+      note.hidden = true;
+    } else if (data.state === 'expired') {
+      meta.textContent = expiryText;
+      pill.textContent = '期限切れ';
+      pill.hidden = false;
+      btn.disabled = true;
+      btn.textContent = '有効期限が切れています';
+      note.hidden = true;
+    } else {
+      meta.textContent = expiryText;
+      pill.textContent = 'まだ使えません';
+      pill.hidden = false;
+      btn.disabled = true;
+      btn.textContent = data.message || 'このクーポンはまだ使えません';
+      note.hidden = true;
+    }
+  }
+
+  async function load() {
+    try {
+      const data = await callGas({ action: 'status', coupon, idToken });
+      if (!data.ok && !data.state) return showError(data.message || 'クーポンを読み込めませんでした。');
+      render(data);
+    } catch (e) {
+      showError('通信に失敗しました。電波の良い場所で開き直してください。');
+    }
+  }
+
+  // 「使用する」→ 店舗選択
+  $('useBtn').addEventListener('click', () => {
+    if (!current || current.state !== 'available') return;
+    const stores = (current.stores && current.stores.length) ? current.stores : [''];
+    const box = $('stores');
+    box.innerHTML = '';
+    stores.forEach((s) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn';
+      b.textContent = s || '使用済みにする'; // 店舗が未設定のときの予備
+      b.addEventListener('click', () => redeem(s, b));
+      box.appendChild(b);
+    });
+    $('storeSheet').hidden = false;
+    box.querySelector('button').focus();
+  });
+  $('backBtn').addEventListener('click', () => { if (!sending) $('storeSheet').hidden = true; });
+
+  async function redeem(store, button) {
+    if (sending) return;
+    sending = true;
+    const all = [...$('storeSheet').querySelectorAll('button')];
+    all.forEach((b) => { b.disabled = true; });
+    const label = button.textContent;
+    button.textContent = '送信中…';
+    try {
+      const data = await callGas({ action: 'redeem', coupon, idToken, store });
+      $('storeSheet').hidden = true;
+      if (data.state) render(data);           // 使用済み・期限切れ等、最新の状態を表示
+      else showError(data.message || '消し込みに失敗しました。もう一度お試しください。');
+    } catch (e) {
+      $('storeSheet').hidden = true;
+      await load();                            // 通信エラー時は状態を取り直す（記録済みの可能性があるため）
+    } finally {
+      sending = false;
+      all.forEach((b) => { b.disabled = false; });
+      button.textContent = label;
+    }
+  }
+
+  // defer の SDK は DOMContentLoaded より前に読み込まれる
+  document.addEventListener('DOMContentLoaded', async function main() {
+    try {
+      await liff.init({ liffId: LIFF_ID });
+      if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
+
+      coupon = new URLSearchParams(location.search).get('coupon') || '';
+      if (!coupon) return showError('クーポンの種類がわかりません。LINEのメッセージから開き直してください。');
+
+      idToken = liff.getIDToken();
+      if (!idToken) return showError('ログイン情報を取得できませんでした。LIFFのScopeに openid を追加してください。');
+
+      await load();
+    } catch (e) {
+      showError('起動に失敗しました。LINEアプリから開き直してください。');
+    }
+  });
+</script>
+</body>
+</html>
