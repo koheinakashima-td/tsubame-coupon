@@ -47,6 +47,8 @@
   .btn:focus-visible { outline: 3px solid #f6b93b; outline-offset: 2px; }
   .btn.white { background: var(--card); color: var(--navy); }
   .note { text-align: center; color: var(--muted); font-size: 12px; margin: 0; }
+  .sync { text-align: center; color: var(--muted); font-size: 12px; margin: 0; }
+  .alert { margin-top: 12px; background: var(--redbg); color: var(--red); border-radius: 12px; padding: 12px; font-size: 14px; font-weight: 700; }
 
   /* 読み込み中の仮の画面（スケルトン）：真っ白な待ち時間をなくす */
   .skel { background: var(--card); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
@@ -95,7 +97,9 @@
     <div class="actions">
       <button class="btn" id="useBtn" type="button">使用する</button>
       <p class="note" id="useNote">お会計時にこの画面をスタッフに見せてください。</p>
+      <p class="sync" id="syncNote" hidden>記録しています…</p>
     </div>
+    <div class="alert" id="alertBox" hidden></div>
   </main>
 
   <div class="overlay" id="storeSheet" hidden>
@@ -211,13 +215,23 @@
     }
   }
 
+  // 前回開いたときの状態をこの端末に覚えておき、次に開いたときはすぐ表示する（最新の状態はあとから上書き）
+  let cacheKey = '';
+  function saveCache(data) {
+    try { if (cacheKey && data && data.state) localStorage.setItem(cacheKey, JSON.stringify(data)); } catch (e) { /* 保存できなくても動く */ }
+  }
+  function readCache() {
+    try { return JSON.parse(localStorage.getItem(cacheKey) || 'null'); } catch (e) { return null; }
+  }
+
   async function load() {
     try {
       const data = await callGas({ action: 'status', coupon, idToken });
       if (!data.ok && !data.state) return showError(data.message || 'クーポンを読み込めませんでした。');
       render(data);
+      saveCache(data);
     } catch (e) {
-      showError('通信に失敗しました。電波の良い場所で開き直してください。');
+      if (!current) showError('通信に失敗しました。電波の良い場所で開き直してください。');
     }
   }
 
@@ -232,7 +246,7 @@
       b.type = 'button';
       b.className = 'btn';
       b.textContent = s || '使用済みにする'; // 店舗が未設定のときの予備
-      b.addEventListener('click', () => redeem(s, b));
+      b.addEventListener('click', () => redeem(s));
       box.appendChild(b);
     });
     $('storeSheet').hidden = false;
@@ -240,26 +254,47 @@
   });
   $('backBtn').addEventListener('click', () => { if (!sending) $('storeSheet').hidden = true; });
 
-  async function redeem(store, button) {
+  // 店舗を押したら、すぐに「使用済み」の画面にする。記録は裏で行い、失敗したときだけ元に戻して知らせる
+  async function redeem(store) {
     if (sending) return;
     sending = true;
-    const all = [...$('storeSheet').querySelectorAll('button')];
-    all.forEach((b) => { b.disabled = true; });
-    const label = button.textContent;
-    button.textContent = '送信中…';
-    try {
-      const data = await callGas({ action: 'redeem', coupon, idToken, store });
-      $('storeSheet').hidden = true;
-      if (data.state) render(data);           // 使用済み・期限切れ等、最新の状態を表示
-      else showError(data.message || '消し込みに失敗しました。もう一度お試しください。');
-    } catch (e) {
-      $('storeSheet').hidden = true;
-      await load();                            // 通信エラー時は状態を取り直す（記録済みの可能性があるため）
-    } finally {
-      sending = false;
-      all.forEach((b) => { b.disabled = false; });
-      button.textContent = label;
+    const before = current;
+    $('storeSheet').hidden = true;
+    $('alertBox').hidden = true;
+    render(Object.assign({}, before, { state: 'used', usedAt: new Date().toISOString(), usedStore: store }));
+    $('syncNote').hidden = false;
+
+    let data = null;
+    for (let attempt = 0; attempt < 2 && !data; attempt++) {
+      try {
+        data = await callGas({ action: 'redeem', coupon, idToken, store });
+      } catch (e) {
+        if (attempt === 0) await new Promise((r) => setTimeout(r, 800));
+      }
     }
+    if (!data) {
+      // 通信できなかった。記録されているかもしれないので、状態を取り直して確かめる
+      try { data = await callGas({ action: 'status', coupon, idToken }); } catch (e) { /* 下で処理 */ }
+    }
+    $('syncNote').hidden = true;
+    sending = false;
+
+    if (data && data.state === 'used') {
+      render(data);
+      saveCache(data);
+    } else if (data && data.state) {
+      render(data);
+      saveCache(data);
+      showAlert(data.message || 'このクーポンは使用済みにできませんでした。');
+    } else {
+      render(before);
+      showAlert('通信できず、使用済みにできていません。電波を確認して、もう一度「使用する」を押してください。');
+    }
+  }
+
+  function showAlert(msg) {
+    $('alertBox').textContent = msg;
+    $('alertBox').hidden = false;
   }
 
   // defer の SDK は DOMContentLoaded より前に読み込まれる
@@ -273,6 +308,11 @@
 
       idToken = liff.getIDToken();
       if (!idToken) return showError('ログイン情報を取得できませんでした。LIFFのScopeに openid を追加してください。');
+
+      const sub = (liff.getDecodedIDToken() || {}).sub || '';
+      cacheKey = sub ? 'coupon_' + sub + '_' + coupon : '';
+      const cached = readCache();
+      if (cached) render(cached); // 前回の状態をすぐ表示
 
       await load();
     } catch (e) {
