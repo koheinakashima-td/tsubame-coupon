@@ -81,7 +81,7 @@
 
   <main id="main" hidden>
     <div class="card" id="card">
-      <div class="band"><span id="cName"></span><span class="code" id="cCode"></span></div>
+      <div class="band"><span id="cName"></span></div>
       <img class="hero" id="cImg" alt="" hidden>
       <div class="body">
         <div class="benefit" id="cBenefit"></div>
@@ -165,8 +165,11 @@
     if (data.displayName) $('hello').textContent = `${data.displayName} さん`;
     const c = data.coupon;
     $('cName').textContent = c.name;
-    $('cCode').textContent = c.param;
-    $('cBenefit').textContent = c.benefit;
+    // 特典内容は、空欄（または初期値のまま）なら表示しない。画像に特典を載せている場合はこちらを空欄にする
+    const benefit = String(c.benefit || '').trim();
+    const showBenefit = benefit && benefit !== 'ここに特典内容を入力';
+    $('cBenefit').textContent = showBenefit ? benefit : '';
+    $('cBenefit').hidden = !showBenefit;
     renderImage(c);
 
     $('card').className = 'card ' + data.state;
