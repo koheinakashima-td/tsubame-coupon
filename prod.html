@@ -6,6 +6,8 @@
 <title>TSUBAME DONUT クーポン</title>
 <!-- defer：SDKの読み込みを待たずに、先に読み込み中の画面を表示する -->
 <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
+<!-- 問い合わせ先に先につないでおく（数百ミリ秒の短縮） -->
+<link rel="preconnect" href="https://tsubame-line-webhook.kohei-nakashima.workers.dev" crossorigin>
 <style>
   :root {
     --navy: #1f2f57;
@@ -113,7 +115,8 @@
 
 <script>
   const LIFF_ID = '2011991095-M0UphXoI';                  // 本番 TSUBAME DONUT クーポン
-  const GAS_URL = 'https://script.google.com/macros/s/AKfycbz6zfsP9Cw6aB4Cr1BapRFEypMgHQtkkthtGqxiibaFYJcDpconR6yd15IvGnCs3PxH/exec'; // 本番 GAS ウェブアプリURL
+  const API_URL = 'https://tsubame-line-webhook.kohei-nakashima.workers.dev/liff'; // 本番 Cloudflare Worker（速い窓口）
+  const GAS_URL = 'https://script.google.com/macros/s/AKfycbz6zfsP9Cw6aB4Cr1BapRFEypMgHQtkkthtGqxiibaFYJcDpconR6yd15IvGnCs3PxH/exec'; // 本番 GAS（Cloudflareにつながらないときの予備）
 
   const $ = (id) => document.getElementById(id);
   let coupon = '';
@@ -133,15 +136,31 @@
     $('error').textContent = msg;
   }
 
-  // GAS へ送信（text/plain にすることで CORS のプリフライトを回避）
+  // 送信（text/plain にすることで CORS のプリフライトを回避）
+  async function post(url, payload, timeoutMs) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload),
+        signal: ctrl.signal,
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return await res.json();
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  // まず Cloudflare（速い）に聞く。つながらない・エラーのときだけ GAS に聞き直す
   async function callGas(payload) {
-    const res = await fetch(GAS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    return res.json();
+    try {
+      return await post(API_URL, payload, 5000);
+    } catch (e) {
+      return await post(GAS_URL, payload, 20000);
+    }
   }
 
   function renderImage(c) {
