@@ -68,7 +68,6 @@
   .sheet h2 { margin: 0; font-size: 18px; text-align: center; }
   .sheet p { margin: 0 0 6px; color: var(--muted); font-size: 13px; text-align: center; }
   .stores { display: grid; gap: 8px; }
-  #backBtn { margin-top: 4px; }
   @media (prefers-reduced-motion: reduce) { .skel .sl, .sheet { animation: none; } }
   [hidden] { display: none !important; }
 </style>
@@ -97,21 +96,14 @@
     </div>
 
     <div class="actions">
-      <button class="btn" id="useBtn" type="button">使用する</button>
+      <!-- 店舗ごとの「〇〇で使用する」ボタン（押すとすぐ使用済みになる） -->
+      <div class="stores" id="storeBtns" hidden></div>
+      <button class="btn" id="useBtn" type="button" disabled hidden></button>
       <p class="note" id="useNote">お会計時にこの画面をスタッフに見せてください。</p>
       <p class="sync" id="syncNote" hidden>記録しています…</p>
     </div>
     <div class="alert" id="alertBox" hidden></div>
   </main>
-
-  <div class="overlay" id="storeSheet" hidden>
-    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="storeTitle">
-      <h2 id="storeTitle">どの店舗で使用しますか？</h2>
-      <p>店舗を押すと使用済みになります。</p>
-      <div class="stores" id="stores"></div>
-      <button class="btn white" id="backBtn" type="button">戻る</button>
-    </div>
-  </div>
 
 <script>
   const LIFF_ID = '2011991095-M0UphXoI';                  // 本番 TSUBAME DONUT クーポン
@@ -131,7 +123,6 @@
   function showError(msg) {
     $('loading').hidden = true;
     $('main').hidden = true;
-    $('storeSheet').hidden = true;
     $('error').hidden = false;
     $('error').textContent = msg;
   }
@@ -196,7 +187,12 @@
     renderImage(c);
 
     $('card').className = 'card ' + data.state;
-    const meta = $('cMeta'), pill = $('cPill'), btn = $('useBtn'), note = $('useNote');
+    const meta = $('cMeta'), pill = $('cPill'), btn = $('useBtn'), note = $('useNote'), storeBtns = $('storeBtns');
+    // 使えるときだけ店舗ボタンを並べる。それ以外は1つのボタン（使用済み など）を表示
+    const usable = data.state === 'available';
+    storeBtns.hidden = !usable;
+    btn.hidden = usable;
+    if (usable) renderStoreButtons(data.stores);
     const expiryText = data.expiresAt ? `有効期限 ${fmtDate(new Date(data.expiresAt))} まで` : '有効期限 なし';
 
     if (data.state === 'available') {
@@ -208,8 +204,6 @@
       } else {
         pill.hidden = true;
       }
-      btn.disabled = false;
-      btn.textContent = '使用する';
       note.hidden = false;
     } else if (data.state === 'used') {
       meta.textContent = `使用日時 ${fmtDateTime(new Date(data.usedAt))}` + (data.usedStore ? `（${data.usedStore}）` : '');
@@ -254,31 +248,30 @@
     }
   }
 
-  // 「使用する」→ 店舗選択
-  $('useBtn').addEventListener('click', () => {
-    if (!current || current.state !== 'available') return;
-    const stores = (current.stores && current.stores.length) ? current.stores : [''];
-    const box = $('stores');
+  // 「赤坂店で使用する」のように、店舗ごとのボタンを作る（店舗はシステム設定のU列の順）
+  function renderStoreButtons(list) {
+    const stores = (list && list.length) ? list : [''];
+    const box = $('storeBtns');
+    const key = stores.join('|');
+    if (box.dataset.key === key) { box.querySelectorAll('button').forEach((b) => { b.disabled = false; }); return; }
+    box.dataset.key = key;
     box.innerHTML = '';
     stores.forEach((s) => {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'btn';
-      b.textContent = s || '使用済みにする'; // 店舗が未設定のときの予備
+      b.textContent = s ? `${s}で使用する` : '使用する'; // 店舗が未設定のときの予備
       b.addEventListener('click', () => redeem(s));
       box.appendChild(b);
     });
-    $('storeSheet').hidden = false;
-    box.querySelector('button').focus();
-  });
-  $('backBtn').addEventListener('click', () => { if (!sending) $('storeSheet').hidden = true; });
+  }
 
   // 店舗を押したら、すぐに「使用済み」の画面にする。記録は裏で行い、失敗したときだけ元に戻して知らせる
   async function redeem(store) {
     if (sending) return;
     sending = true;
     const before = current;
-    $('storeSheet').hidden = true;
+    $('storeBtns').querySelectorAll('button').forEach((b) => { b.disabled = true; }); // 二度押し防止
     $('alertBox').hidden = true;
     render(Object.assign({}, before, { state: 'used', usedAt: new Date().toISOString(), usedStore: store }));
     $('syncNote').hidden = false;
