@@ -112,6 +112,7 @@
 
   const $ = (id) => document.getElementById(id);
   let coupon = '';
+  let variant = '';
   let idToken = '';
   let current = null;
   let sending = false;
@@ -239,7 +240,7 @@
 
   async function load() {
     try {
-      const data = await callGas({ action: 'status', coupon, idToken });
+      const data = await callGas({ action: 'status', coupon, v: variant, idToken });
       if (!data.ok && !data.state) return showError(data.message || 'クーポンを読み込めませんでした。');
       render(data);
       saveCache(data);
@@ -279,14 +280,14 @@
     let data = null;
     for (let attempt = 0; attempt < 2 && !data; attempt++) {
       try {
-        data = await callGas({ action: 'redeem', coupon, idToken, store });
+        data = await callGas({ action: 'redeem', coupon, v: variant, idToken, store });
       } catch (e) {
         if (attempt === 0) await new Promise((r) => setTimeout(r, 800));
       }
     }
     if (!data) {
       // 通信できなかった。記録されているかもしれないので、状態を取り直して確かめる
-      try { data = await callGas({ action: 'status', coupon, idToken }); } catch (e) { /* 下で処理 */ }
+      try { data = await callGas({ action: 'status', coupon, v: variant, idToken }); } catch (e) { /* 下で処理 */ }
     }
     $('syncNote').hidden = true;
     sending = false;
@@ -315,14 +316,16 @@
       await liff.init({ liffId: LIFF_ID });
       if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
 
-      coupon = new URLSearchParams(location.search).get('coupon') || '';
+      const qs = new URLSearchParams(location.search);
+      coupon = qs.get('coupon') || '';
+      variant = qs.get('v') || ''; // ABテストの B パターン
       if (!coupon) return showError('クーポンの種類がわかりません。LINEのメッセージから開き直してください。');
 
       idToken = liff.getIDToken();
       if (!idToken) return showError('ログイン情報を取得できませんでした。LIFFのScopeに openid を追加してください。');
 
       const sub = (liff.getDecodedIDToken() || {}).sub || '';
-      cacheKey = sub ? 'coupon_' + sub + '_' + coupon : '';
+      cacheKey = sub ? 'coupon_' + sub + '_' + coupon + (variant ? '_' + variant : '') : '';
       const cached = readCache();
       if (cached) render(cached); // 前回の状態をすぐ表示
 
